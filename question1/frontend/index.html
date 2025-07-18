@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SHORTENER WEB APP</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const URLShortener = () => {
+      const [urls, setUrls] = useState([{ longUrl: '', validity: 30, shortcode: '' }]);
+      const [shortenedUrls, setShortenedUrls] = useState([]);
+      const [error, setError] = useState('');
+
+      const validateInput = (url, validity, shortcode) => {
+        const urlPattern = /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?$/;
+        if (!urlPattern.test(url)) return 'Please enter a valid URL.';
+        if (isNaN(validity) || validity <= 0) return 'Validity should be a positive number.';
+        if (shortcode && !/^[a-zA-Z0-9]{1,10}$/.test(shortcode)) return 'Shortcode must be alphanumeric and max 10 characters.';
+        return '';
+      };
+
+      const handleShorten = () => {
+        const errors = urls.map(({ longUrl, validity, shortcode }) => validateInput(longUrl, validity, shortcode));
+        const firstError = errors.find(e => e);
+        if (firstError) {
+          setError(firstError);
+          return;
+        }
+
+        setError('');
+        const newShortLinks = urls.map(u => ({
+          ...u,
+          shortUrl: `http://localhost:3000/${u.shortcode || Math.random().toString(36).substr(2, 6)}`,
+          expiry: new Date(Date.now() + u.validity * 60000).toISOString(),
+          clicks: 0,
+          clickData: []
+        }));
+        setShortenedUrls([...shortenedUrls, ...newShortLinks]);
+        setUrls([{ longUrl: '', validity: 30, shortcode: '' }]);
+      };
+
+      const handleRedirect = (shortUrl) => {
+        const item = shortenedUrls.find(u => u.shortUrl === shortUrl);
+        if (item && new Date(item.expiry) > new Date()) {
+          item.clicks++;
+          item.clickData.push({
+            timestamp: new Date().toISOString(),
+            source: 'direct',
+            location: 'unknown'
+          });
+          setShortenedUrls([...shortenedUrls]);
+          window.open(item.longUrl, '_blank');
+        } else {
+          setError('This link has expired or is invalid.');
+        }
+      };
+
+      const handleInputChange = (index, field, value) => {
+        const updatedUrls = [...urls];
+        updatedUrls[index][field] = value;
+        setUrls(updatedUrls);
+      };
+
+      return (
+        <div className="container">
+          <h1>REACT URL SHORTENER WEB APP</h1><br/>
+          {urls.slice(0, 5).map((url, index) => (
+            <div key={index} className="form-group">
+              <input
+                className="input-field"
+                placeholder="Enter long URL"
+                value={url.longUrl}
+                onChange={e => handleInputChange(index, 'longUrl', e.target.value)}
+              /><br/><br/>
+              <input
+                className="input-field"
+                type="number"
+                placeholder="Validity in minutes (e.g., 30)"
+                value={url.validity}
+                onChange={e => handleInputChange(index, 'validity', e.target.value)}
+              /><br/><br/>
+              <input
+                className="input-field"
+                placeholder="Custom shortcode (optional)"
+                value={url.shortcode}
+                onChange={e => handleInputChange(index, 'shortcode', e.target.value)}
+              /><br/><br/>
+              {index < 4 && (
+                <button onClick={() => setUrls([...urls, { longUrl: '', validity: 30, shortcode: '' }])}>
+                   Add another URL
+                </button>
+                
+              )}
+            </div>
+          ))}
+          <button onClick={handleShorten}>Generate Short Links</button><br/>
+          {error && <div className="error">{error}</div>}
+
+          <div className="shortened-urls">
+            <h2>Your Shortened Links</h2>
+            {shortenedUrls.map((url, index) => (
+              <div key={index} className="url-item">
+                <p><strong>Short URL Link:</strong> <a href="#" onClick={() => handleRedirect(url.shortUrl)}>{url.shortUrl}</a></p>
+                <p><strong>Expires by:</strong> {new Date(url.expiry).toLocaleString()}</p>
+                <p><strong>Number of Clicks:</strong> {url.clicks}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="stats">
+            <h2>Detailed Click Statistics Of The User</h2><br/>
+            {shortenedUrls.map((url, index) => (
+              <div key={index} className="url-item">
+                <p><strong>Short URL:</strong> {url.shortUrl}</p>
+                <p><strong>Expiry:</strong> {new Date(url.expiry).toLocaleString()}</p>
+                <p><strong>Total Clicks:</strong> {url.clicks}</p>
+                {url.clickData.map((click, i) => (
+                  <div key={i} style={{ marginLeft: '15px' }}>
+                    <p>Date Clicked At: {new Date(click.timestamp).toLocaleString()}</p>
+                    <p>Source: {click.source}</p>
+                    <p>Location: {click.location}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<URLShortener />, document.getElementById('root'));
+  </script>
+</body>
+</html>
